@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Know Requests</title>
+<style>
+:root {
+  --bg: #111; --surface: #1a1a1a; --border: #272727;
+  --text: #f0f0f0; --text2: #777; --accent: #10b981;
+  --accent-dim: rgba(16,185,129,0.12); --red: #ef4444;
+  --gold: #d4a843;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(56px + var(--safe-bottom));
+}
+.view { display: none; }
+.view.active { display: block; }
+
+/* Header */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; position: sticky; top: 0; z-index: 50;
+  background: rgba(17,17,17,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.back-btn { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 0 8px 0 0; display: none; line-height: 1; }
+.credit-pill {
+  font-size: 13px; color: var(--accent); background: var(--accent-dim);
+  padding: 5px 12px; border-radius: 100px; cursor: pointer; font-weight: 500;
+}
+.credit-pill .held { color: var(--text2); font-size: 11px; margin-left: 4px; }
+
+/* Landing */
+.landing { padding: 48px 24px 24px; text-align: center; }
+.dj-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--border);
+  margin: 0 auto 16px; display: flex; align-items: center;
+  justify-content: center; font-size: 28px; color: var(--text2);
+}
+.dj-name { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.venue-label { color: var(--text2); font-size: 14px; margin-top: 4px; }
+.venue-price { color: var(--text2); font-size: 13px; margin-top: 8px; }
+.venue-price strong { color: var(--text); }
+.stats-row { display: flex; justify-content: center; gap: 32px; margin: 28px 0; }
+.stat-item { text-align: center; }
+.stat-val { font-size: 20px; font-weight: 600; }
+.stat-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+.primary-btn {
+  display: block; width: 100%; padding: 14px; border: none; border-radius: 10px;
+  background: var(--accent); color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 8px; letter-spacing: -0.01em;
+}
+.primary-btn:active { opacity: 0.85; }
+.secondary-btn {
+  display: block; width: 100%; padding: 12px; border: 1px solid var(--border);
+  border-radius: 10px; background: transparent; color: var(--text2);
+  font-size: 14px; cursor: pointer; margin-top: 8px;
+}
+
+/* Search */
+.search-wrap { padding: 12px 16px; }
+.search-input {
+  width: 100%; padding: 11px 14px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--surface); color: var(--text);
+  font-size: 15px; outline: none;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: #555; }
+.results { padding: 0 16px; }
+.result-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer;
+}
+.result-item:active { opacity: 0.7; }
+.result-art {
+  width: 44px; height: 44px; border-radius: 6px; object-fit: cover;
+  background: var(--surface); flex-shrink: 0;
+}
+.result-info { flex: 1; min-width: 0; }
+.result-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-artist { font-size: 13px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.src-badge {
+  font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 2px 5px; border-radius: 3px; background: rgba(255,255,255,0.07);
+  color: var(--text2); margin-left: 6px; vertical-align: middle;
+}
+.src-badge.tidal { background: rgba(16,185,129,0.12); color: var(--accent); }
+.search-state { text-align: center; padding: 48px 20px; color: var(--text2); font-size: 14px; }
+
+/* Confirm */
+.confirm-wrap { padding: 24px 20px; }
+.confirm-top { text-align: center; margin-bottom: 24px; }
+.confirm-art { width: 160px; height: 160px; border-radius: 10px; margin-bottom: 16px; }
+.confirm-title { font-size: 18px; font-weight: 600; }
+.confirm-artist { font-size: 14px; color: var(--text2); margin-top: 2px; }
+.field-group { margin-bottom: 20px; }
+.field-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.boost-track { position: relative; }
+.boost-slider {
+  width: 100%; -webkit-appearance: none; appearance: none; height: 4px;
+  border-radius: 2px; background: var(--border); outline: none;
+}
+.boost-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--text); cursor: pointer;
+}
+.boost-val { text-align: right; font-size: 14px; color: var(--gold); margin-top: 6px; font-weight: 500; }
+.cost-block {
+  background: var(--surface); border-radius: 10px; padding: 14px 16px;
+  border: 1px solid var(--border);
+}
+.cost-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; color: var(--text2); }
+.cost-row.total { color: var(--text); font-weight: 600; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px; }
+.insufficient { color: var(--red); font-size: 13px; margin-top: 8px; text-align: center; }
+.insufficient a { color: var(--accent); }
+.hold-note { font-size: 12px; color: var(--text2); text-align: center; margin-top: 12px; line-height: 1.5; }
+
+/* Top-up */
+.topup-wrap { padding: 24px 20px; }
+.topup-title { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 4px; }
+.topup-sub { font-size: 13px; color: var(--text2); text-align: center; margin-bottom: 20px; }
+.pack-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pack {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; text-align: center; cursor: pointer; position: relative;
+}
+.pack:active { border-color: var(--accent); }
+.pack-qty { font-size: 24px; font-weight: 600; }
+.pack-unit { font-size: 12px; color: var(--text2); }
+.pack-price { font-size: 16px; font-weight: 600; color: var(--accent); margin-top: 8px; }
+.pack-per { font-size: 11px; color: var(--text2); }
+.pack.best::after {
+  content: "Best value"; position: absolute; top: -8px; right: 12px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* Requests */
+.requests-wrap { padding: 16px 20px; }
+.requests-wrap h2 { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+.req-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.req-item img { width: 40px; height: 40px; border-radius: 6px; }
+.req-info { flex: 1; min-width: 0; }
+.req-song { font-size: 14px; font-weight: 500; }
+.req-artist { font-size: 12px; color: var(--text2); }
+.req-note { font-size: 11px; margin-top: 2px; }
+.req-note.held { color: var(--gold); }
+.req-note.charged { color: var(--text2); }
+.req-note.refunded { color: var(--accent); }
+.req-badge {
+  font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px;
+  text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0;
+}
+.req-badge.pending { background: rgba(255,255,255,0.06); color: var(--text2); }
+.req-badge.accepted { background: var(--accent-dim); color: var(--accent); }
+.req-badge.playing { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.req-badge.played { background: rgba(255,255,255,0.04); color: #555; }
+.req-badge.skipped { background: rgba(255,255,255,0.04); color: #555; }
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text2); font-size: 14px; }
+
+/* Bottom nav */
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(17,17,17,0.94); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around;
+  padding: 6px 0 calc(6px + var(--safe-bottom)); z-index: 100;
+}
+nav button {
+  background: none; border: none; color: var(--text2); font-size: 10px;
+  padding: 6px 16px; cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; gap: 2px; letter-spacing: 0.02em;
+}
+nav button .icon { font-size: 18px; line-height: 1; }
+nav button.active { color: var(--accent); }
+
+.toast {
+  position: fixed; bottom: 70px; left: 16px; right: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.2s;
+  text-align: center; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex; align-items:center;">
+    <button class="back-btn" id="backBtn">&larr;</button>
+    <span class="header-title">Know Requests</span>
+  </div>
+  <div class="credit-pill" id="creditBadge" onclick="showView('topup')">0 credits</div>
+</div>
+
+<!-- LANDING -->
+<div class="view active" id="view-landing">
+  <div class="landing">
+    <div class="dj-avatar">&#9835;</div>
+    <div class="dj-name" id="djName">DJ</div>
+    <div class="venue-label" id="venueLabel"></div>
+    <div class="venue-price">Base request: <strong id="basePriceLabel">$2.00</strong></div>
+    <div class="stats-row">
+      <div class="stat-item"><div class="stat-val" id="queueCount">0</div><div class="stat-label">Queue</div></div>
+      <div class="stat-item"><div class="stat-val">12</div><div class="stat-label">Played</div></div>
+      <div class="stat-item"><div class="stat-val">47</div><div class="stat-label">Active</div></div>
+    </div>
+    <button class="primary-btn" onclick="showView('search')">Search &amp; Request</button>
+    <button class="secondary-btn" onclick="showView('requests')">My Requests</button>
+  </div>
+</div>
+
+<!-- SEARCH -->
+<div class="view" id="view-search">
+  <div class="search-wrap">
+    <input class="search-input" id="searchInput" placeholder="Song or artist..." autocomplete="off">
+  </div>
+  <div class="search-state" id="searchEmpty">Search for a song to request</div>
+  <div class="search-state" id="searchSpinner" style="display:none;">Searching...</div>
+  <div class="results" id="resultsGrid"></div>
+</div>
+
+<!-- CONFIRM -->
+<div class="view" id="view-confirm">
+  <div class="confirm-wrap">
+    <div class="confirm-top">
+      <img class="confirm-art" id="confirmArt" src="" alt="">
+      <div class="confirm-title" id="confirmTitle"></div>
+      <div class="confirm-artist" id="confirmArtist"></div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Boost priority</div>
+      <input type="range" class="boost-slider" id="boostSlider" min="0" max="10" value="0" step="1">
+      <div class="boost-val">+<span id="boostAmount">0</span> extra</div>
+    </div>
+    <div class="cost-block">
+      <div class="cost-row"><span>Base</span><span id="costBase">1 credit</span></div>
+      <div class="cost-row"><span>Boost</span><span id="costBoost">0</span></div>
+      <div class="cost-row total"><span>Total</span><span id="costTotal">1 credit</span></div>
+    </div>
+    <div class="insufficient" id="insufficientMsg" style="display:none;">
+      Not enough credits. <a href="#" onclick="showView('topup'); return false;">Top up</a>
+    </div>
+    <button class="primary-btn" id="submitBtn" onclick="submitRequest()" style="margin-top:16px;">Submit Request</button>
+    <div class="hold-note">Credits held until DJ adds to playlist. Returned if declined.</div>
+  </div>
+</div>
+
+<!-- TOP-UP -->
+<div class="view" id="view-topup">
+  <div class="topup-wrap">
+    <div class="topup-title">Get Credits</div>
+    <div class="topup-sub">Use at any venue</div>
+    <div class="pack-list">
+      <div class="pack" onclick="buyPack(1, 2.00)">
+        <div class="pack-qty">1</div><div class="pack-unit">request</div>
+        <div class="pack-price">$2.00</div><div class="pack-per">$2.00 ea</div>
+      </div>
+      <div class="pack" onclick="buyPack(10, 17.50)">
+        <div class="pack-qty">10</div><div class="pack-unit">requests</div>
+        <div class="pack-price">$17.50</div><div class="pack-per">$1.75 ea</div>
+      </div>
+      <div class="pack best" onclick="buyPack(25, 37.50)">
+        <div class="pack-qty">25</div><div class="pack-unit">requests</div>
+        <div class="pack-price">$37.50</div><div class="pack-per">$1.50 ea</div>
+      </div>
+      <div class="pack" onclick="buyPack(50, 62.50)">
+        <div class="pack-qty">50</div><div class="pack-unit">requests</div>
+        <div class="pack-price">$62.50</div><div class="pack-per">$1.25 ea</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MY REQUESTS -->
+<div class="view" id="view-requests">
+  <div class="requests-wrap">
+    <h2>My Requests</h2>
+    <div id="myRequestsList"></div>
+    <div class="empty-state" id="noRequests">No requests yet</div>
+  </div>
+</div>
+
+<nav>
+  <button class="active" onclick="showView('landing')" data-view="landing"><span class="icon">&#8962;</span>Home</button>
+  <button onclick="showView('search')" data-view="search"><span class="icon">&#8981;</span>Search</button>
+  <button onclick="showView('topup')" data-view="topup"><span class="icon">&#43;</span>Credits</button>
+  <button onclick="showView('requests')" data-view="requests"><span class="icon">&#9776;</span>Requests</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+const API = window.KR_API || '';
+// Anonymous device identity (decision 011)
+const USER_ID = localStorage.getItem('kr_user') ||
+  (() => { const id = 'u' + Math.random().toString(36).slice(2, 10); localStorage.setItem('kr_user', id); return id; })();
+
+let state = {
+  credits: parseInt(localStorage.getItem('kr_credits') || '5'),
+  heldCredits: 0, selectedSong: null, viewHistory: ['landing'],
+  queue: [], settings: { basePrice: 1, djName: 'DJ', venueName: '' },
+};
+let searchTimeout = null;
+
+function init() {
+  sync();
+  setInterval(sync, 2000);
+}
+
+async function sync() {
+  try {
+    const res = await fetch(API + '/api/queue');
+    const data = await res.json();
+    state.queue = data.queue || [];
+    state.settings = Object.assign(state.settings, data.settings || {});
+    document.getElementById('djName').textContent = state.settings.djName || 'DJ';
+    document.getElementById('venueLabel').textContent = state.settings.venueName || '';
+    document.getElementById('basePriceLabel').textContent = '$' + ((state.settings.basePrice || 1) * 2).toFixed(2);
+    recalcHeld(); updateCreditDisplay(); updateQueueCount(); renderMyRequests();
+  } catch (e) { /* server unreachable — retry on next tick */ }
+}
+
+// My contribution per queue entry (entries can merge across requesters)
+function mineMap() { return JSON.parse(localStorage.getItem('kr_mine') || '{}'); }
+
+function recalcHeld() {
+  const mine = mineMap();
+  const charged = JSON.parse(localStorage.getItem('kr_charged') || '[]');
+  let held = 0;
+  state.queue.forEach(r => {
+    const my = mine[r.id]; if (!my) return;
+    if (r.status === 'pending') held += my;
+    else if (['accepted', 'playing', 'played'].includes(r.status) && !charged.includes(r.id)) {
+      state.credits -= my; charged.push(r.id);
+    }
+    // skipped → never charged, hold simply releases
+  });
+  localStorage.setItem('kr_charged', JSON.stringify(charged));
+  localStorage.setItem('kr_credits', String(state.credits));
+  state.heldCredits = held;
+}
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+  const back = document.getElementById('backBtn');
+  if (name !== 'landing') { state.viewHistory.push(name); back.style.display = 'block'; back.onclick = goBack; }
+  else { state.viewHistory = ['landing']; back.style.display = 'none'; }
+  if (name === 'search') setTimeout(() => document.getElementById('searchInput').focus(), 50);
+  if (name === 'requests') renderMyRequests();
+}
+
+function goBack() { state.viewHistory.pop(); showView(state.viewHistory[state.viewHistory.length - 1] || 'landing'); }
+
+function updateCreditDisplay() {
+  const avail = state.credits - state.heldCredits;
+  const badge = document.getElementById('creditBadge');
+  badge.innerHTML = state.heldCredits > 0
+    ? `${avail} avail <span class="held">(${state.heldCredits} held)</span>`
+    : `${state.credits} credits`;
+}
+
+function updateQueueCount() {
+  document.getElementById('queueCount').textContent =
+    state.queue.filter(r => r.status === 'pending' || r.status === 'accepted').length;
+}
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('resultsGrid').innerHTML = ''; document.getElementById('searchEmpty').style.display = ''; document.getElementById('searchSpinner').style.display = 'none'; return; }
+  document.getElementById('searchEmpty').style.display = 'none';
+  document.getElementById('searchSpinner').style.display = '';
+  searchTimeout = setTimeout(() => searchSongs(q), 400);
+});
+
+async function searchSongs(query) {
+  try {
+    const res = await fetch(`${API}/api/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    document.getElementById('searchSpinner').style.display = 'none';
+    renderResults(data.results || []);
+  } catch(e) { document.getElementById('searchSpinner').style.display = 'none'; renderResults([]); }
+}
+
+function renderResults(results) {
+  const grid = document.getElementById('resultsGrid');
+  if (!results.length) { grid.innerHTML = '<div class="search-state">No results</div>'; return; }
+  grid.innerHTML = results.map((r, i) => {
+    const badges = (r.platforms || []).map(p => `<span class="src-badge ${p}">${esc(p)}</span>`).join('');
+    return `
+    <div class="result-item" onclick="selectSong(${i})">
+      <img class="result-art" src="${r.albumArt || ''}" alt="">
+      <div class="result-info">
+        <div class="result-name">${esc(r.songName)}${badges}</div>
+        <div class="result-artist">${esc(r.artistName)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  window._results = results;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+function selectSong(i) {
+  const s = window._results[i]; if (!s) return;
+  state.selectedSong = s;
+  document.getElementById('confirmArt').src = (s.albumArt || '').replace('100x100', '300x300');
+  document.getElementById('confirmTitle').textContent = s.songName;
+  document.getElementById('confirmArtist').textContent = s.artistName;
+  document.getElementById('boostSlider').value = 0;
+  updateCost(); showView('confirm');
+}
+
+const boostSlider = document.getElementById('boostSlider');
+boostSlider.addEventListener('input', updateCost);
+
+function updateCost() {
+  const base = state.settings.basePrice || 1;
+  const boost = parseInt(boostSlider.value);
+  const total = base + boost;
+  const avail = state.credits - state.heldCredits;
+  document.getElementById('costBase').textContent = base + ' cr';
+  document.getElementById('costBoost').textContent = boost ? boost + ' cr' : '0';
+  document.getElementById('boostAmount').textContent = boost;
+  document.getElementById('costTotal').textContent = total + ' credits';
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('insufficientMsg');
+  if (avail < total) { btn.style.opacity = '0.4'; btn.textContent = 'Not Enough Credits'; msg.style.display = ''; }
+  else { btn.style.opacity = '1'; btn.textContent = 'Submit Request'; msg.style.display = 'none'; }
+}
+
+async function submitRequest() {
+  const base = state.settings.basePrice || 1;
+  const boost = parseInt(boostSlider.value);
+  const total = base + boost;
+  if ((state.credits - state.heldCredits) < total) { showView('topup'); return; }
+  const song = state.selectedSong;
+  try {
+    const res = await fetch(API + '/api/request', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        songId: song.songId, songName: song.songName, artistName: song.artistName,
+        albumArt: song.albumArt || '', sources: song.sources || {}, isrc: song.isrc || '',
+        totalCredits: total, fromUser: USER_ID,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) { showToast('Request failed — try again'); return; }
+    const entry = (data.queue || []).find(r => r.songId === song.songId && r.status === 'pending');
+    if (entry) {
+      const mine = mineMap();
+      mine[entry.id] = (mine[entry.id] || 0) + total;
+      localStorage.setItem('kr_mine', JSON.stringify(mine));
+    }
+    state.queue = data.queue || state.queue;
+    recalcHeld(); updateCreditDisplay();
+    showToast('Request submitted — credits held until DJ accepts');
+    showView('requests');
+  } catch (e) { showToast('Server unreachable'); }
+}
+
+function buyPack(count) {
+  state.credits += count;
+  localStorage.setItem('kr_credits', String(state.credits));
+  updateCreditDisplay(); showToast(`+${count} credits`);
+}
+
+function renderMyRequests() {
+  const mine = mineMap();
+  const myEntries = state.queue.filter(r => mine[r.id]);
+  const list = document.getElementById('myRequestsList');
+  document.getElementById('noRequests').style.display = myEntries.length ? 'none' : '';
+  if (!myEntries.length) { list.innerHTML = ''; return; }
+  list.innerHTML = myEntries.map(r => {
+    const myCredits = mine[r.id];
+    let note = '', cls = '';
+    if (r.status === 'pending') { note = myCredits + ' cr held'; cls = 'held'; }
+    else if (r.status === 'skipped') { note = myCredits + ' cr refunded'; cls = 'refunded'; }
+    else { note = myCredits + ' cr charged'; cls = 'charged'; }
+    const label = r.status === 'accepted' ? 'in playlist' : r.status;
+    return `<div class="req-item">
+      <img src="${r.albumArt || ''}" alt="">
+      <div class="req-info"><div class="req-song">${esc(r.songName)}</div><div class="req-artist">${esc(r.artistName)}</div><div class="req-note ${cls}">${note}</div></div>
+      <span class="req-badge ${r.status}">${esc(label)}</span></div>`;
+  }).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
+}
+init();
+</script>
+</body>
+</html>

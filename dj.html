@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Know Requests — DJ</title>
+<style>
+:root {
+  --bg: #111; --surface: #1a1a1a; --border: #272727;
+  --text: #f0f0f0; --text2: #777; --accent: #10b981;
+  --accent-dim: rgba(16,185,129,0.12); --red: #ef4444;
+  --gold: #d4a843;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  padding-bottom: calc(56px + var(--safe-bottom));
+}
+.view { display: none; }
+.view.active { display: block; }
+
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(17,17,17,0.92); backdrop-filter: blur(12px);
+}
+.header-title { font-size: 15px; font-weight: 600; }
+.live-dot { display: inline-block; width: 7px; height: 7px; background: var(--red); border-radius: 50%; margin-right: 6px; animation: pulse 2s infinite; }
+.live-label { font-size: 12px; color: var(--red); font-weight: 600; letter-spacing: 0.05em; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.stats-bar {
+  display: flex; border-bottom: 1px solid var(--border); padding: 14px 20px;
+  gap: 0;
+}
+.stat { flex: 1; text-align: center; }
+.stat-val { font-size: 18px; font-weight: 600; }
+.stat-val.green { color: var(--accent); }
+.stat-val.blue { color: #60a5fa; }
+.stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+.now-playing {
+  margin: 16px 16px 0; padding: 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  display: flex; align-items: center; gap: 12px;
+}
+.now-playing.empty { justify-content: center; color: var(--text2); font-size: 13px; padding: 20px; }
+.np-art { width: 48px; height: 48px; border-radius: 6px; }
+.np-info { flex: 1; }
+.np-label { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; }
+.np-song { font-size: 14px; font-weight: 600; margin-top: 1px; }
+.np-artist { font-size: 12px; color: var(--text2); }
+.np-done {
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--accent);
+  background: var(--accent-dim); color: var(--accent); font-size: 16px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+.section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px 8px; font-size: 13px; font-weight: 600;
+}
+.section-count { color: var(--text2); font-weight: 400; }
+
+.queue-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+}
+.q-rank { font-size: 13px; color: var(--text2); min-width: 20px; font-weight: 500; }
+.q-art { width: 40px; height: 40px; border-radius: 6px; background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text2); flex-shrink: 0; overflow: hidden; }
+.q-art img { width: 100%; height: 100%; object-fit: cover; }
+.q-info { flex: 1; min-width: 0; }
+.q-song { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-meta { font-size: 12px; color: var(--text2); display: flex; gap: 10px; margin-top: 1px; }
+.q-credits { color: var(--gold); }
+.q-bpm { color: var(--accent); font-weight: 600; }
+.q-tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; margin-left: 6px; }
+.q-tag.pending { background: rgba(255,255,255,0.06); color: var(--text2); }
+.q-tag.accepted { background: var(--accent-dim); color: var(--accent); }
+.q-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.q-btn {
+  padding: 6px 12px; border-radius: 6px; border: none;
+  font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.q-btn:active { opacity: 0.7; }
+.q-btn.accept { background: var(--accent); color: #fff; }
+.q-btn.play { background: #3b82f6; color: #fff; }
+.q-btn.decline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+.queue-empty { text-align: center; padding: 48px 20px; color: var(--text2); font-size: 14px; }
+
+/* QR */
+.qr-wrap { padding: 32px 20px; text-align: center; }
+.qr-wrap h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.qr-wrap .sub { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+.qr-frame {
+  background: #fff; border-radius: 12px; display: inline-block; padding: 24px;
+}
+.qr-inner {
+  width: 180px; height: 180px;
+  background: repeating-conic-gradient(#222 0% 25%, #fff 0% 50%) 50% / 10px 10px;
+  border-radius: 4px; position: relative;
+}
+.qr-label {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  background: #fff; padding: 4px 10px; border-radius: 4px;
+  font-size: 11px; font-weight: 700; color: #111; letter-spacing: 0.04em;
+}
+.qr-url { color: var(--text2); font-size: 12px; margin-top: 16px; font-family: monospace; }
+
+/* Settings */
+.settings-wrap { padding: 20px; }
+.settings-wrap h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.s-group { margin-bottom: 20px; }
+.s-group-title { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.s-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 4px; font-size: 13px;
+}
+.s-val { color: var(--text2); }
+.s-input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; color: var(--text); font-size: 13px; width: 120px;
+  text-align: right; outline: none;
+}
+.s-select {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; color: var(--text); font-size: 13px; outline: none;
+}
+.danger-btn {
+  width: 100%; padding: 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px; color: var(--red); font-size: 13px; font-weight: 500;
+  cursor: pointer; margin-top: 8px;
+}
+
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(17,17,17,0.94); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: space-around;
+  padding: 6px 0 calc(6px + var(--safe-bottom)); z-index: 100;
+}
+nav button {
+  background: none; border: none; color: var(--text2); font-size: 10px;
+  padding: 6px 16px; cursor: pointer; display: flex; flex-direction: column;
+  align-items: center; gap: 2px;
+}
+nav button .icon { font-size: 18px; line-height: 1; }
+nav button.active { color: var(--accent); }
+
+.toast {
+  position: fixed; bottom: 70px; left: 16px; right: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; z-index: 200; opacity: 0; transition: opacity 0.2s;
+  text-align: center; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-title">Dashboard</span>
+  <div><span class="live-dot"></span><span class="live-label">LIVE</span></div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val green" id="totalEarnings">$0</div><div class="stat-label">Earned</div></div>
+  <div class="stat"><div class="stat-val blue" id="pendingCount">0</div><div class="stat-label">Pending</div></div>
+  <div class="stat"><div class="stat-val" id="playedCount">0</div><div class="stat-label">Played</div></div>
+</div>
+
+<!-- QUEUE VIEW -->
+<div class="view active" id="view-queue">
+  <div class="now-playing empty" id="nowPlaying">No song playing</div>
+  <div class="section-header">Queue <span class="section-count" id="queueCountLabel">0</span></div>
+  <div id="queueList"></div>
+  <div class="queue-empty" id="queueEmpty">No requests yet. Share your QR code.</div>
+</div>
+
+<!-- QR VIEW -->
+<div class="view" id="view-qr">
+  <div class="qr-wrap">
+    <h2>Your QR Code</h2>
+    <div class="sub">Patrons scan to request songs</div>
+    <div class="qr-frame">
+      <img id="qrImg" width="180" height="180" alt="QR code" style="display:block;">
+    </div>
+    <div class="qr-url" id="qrUrl"></div>
+  </div>
+</div>
+
+<!-- SETTINGS VIEW -->
+<div class="view" id="view-settings">
+  <div class="settings-wrap">
+    <h2>Settings</h2>
+    <div class="s-group">
+      <div class="s-group-title">Venue</div>
+      <div class="s-row"><span>DJ Name</span><input class="s-input" id="settDjName" onchange="saveSettings()"></div>
+      <div class="s-row"><span>Venue</span><input class="s-input" id="settVenue" onchange="saveSettings()"></div>
+    </div>
+    <div class="s-group">
+      <div class="s-group-title">Pricing</div>
+      <div class="s-row"><span>Base Price</span>
+        <select class="s-select" id="settBasePrice" onchange="saveSettings()">
+          <option value="1">$2 (1 cr)</option><option value="2">$4 (2 cr)</option>
+          <option value="5">$10 (5 cr)</option><option value="10">$20 (10 cr)</option>
+        </select>
+      </div>
+      <div class="s-row"><span>DJ/Venue Cut</span><span class="s-val">50%</span></div>
+      <div class="s-row"><span>Platform</span><span class="s-val">50%</span></div>
+      <div class="s-row"><span>Transaction Fees</span><span class="s-val">DJ/venue side</span></div>
+    </div>
+    <div class="s-group">
+      <div class="s-group-title">Streaming Services</div>
+      <div id="servicesList"><div class="s-row"><span>Loading…</span></div></div>
+      <div class="s-row"><span>Request Playlist</span><span class="s-val" style="font-size:12px;">Know Requests — Live</span></div>
+    </div>
+    <button class="danger-btn" onclick="clearQueue()">Clear Queue &amp; Reset</button>
+  </div>
+</div>
+
+<nav>
+  <button class="active" onclick="showView('queue')" data-view="queue"><span class="icon">&#9776;</span>Queue</button>
+  <button onclick="showView('qr')" data-view="qr"><span class="icon">&#11200;</span>QR</button>
+  <button onclick="showView('settings')" data-view="settings"><span class="icon">&#9881;</span>Settings</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+const API = window.KR_API || '';
+let state = { queue: [], settings: {} };
+
+async function init() {
+  // QR must be scannable from OTHER devices — swap localhost for the LAN address
+  let origin = location.origin;
+  if (/localhost|127\.0\.0\.1/.test(location.hostname)) {
+    try { origin = (await (await fetch(API + '/api/info')).json()).lanUrl; } catch (e) {}
+  }
+  const patronUrl = origin + '/index.html';
+  document.getElementById('qrImg').src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(patronUrl);
+  document.getElementById('qrUrl').textContent = patronUrl;
+  sync();
+  setInterval(sync, 2000);
+  checkServices();
+  setInterval(checkServices, 15000);
+}
+
+async function sync() {
+  try {
+    const res = await fetch(API + '/api/queue');
+    const data = await res.json();
+    state.queue = data.queue || [];
+    if (data.settings && document.activeElement.tagName !== 'INPUT') {
+      state.settings = data.settings;
+      document.getElementById('settDjName').value = data.settings.djName || '';
+      document.getElementById('settVenue').value = data.settings.venueName || '';
+      document.getElementById('settBasePrice').value = String(data.settings.basePrice || 1);
+    }
+    renderAll();
+  } catch (e) { /* server unreachable — retry on next tick */ }
+}
+
+async function checkServices() {
+  const el = document.getElementById('servicesList');
+  try {
+    const res = await fetch(API + '/api/services');
+    const d = await res.json();
+    const services = d.services || [];
+    if (!services.length) {
+      el.innerHTML = '<div class="s-row"><span>No services available</span></div>';
+      return;
+    }
+    el.innerHTML = services.map(s => {
+      let stateHtml;
+      if (!s.configured) {
+        stateHtml = '<span class="s-val" style="color:var(--red);">not configured</span>';
+      } else if (!s.authenticated) {
+        stateHtml = `<a href="${API}${s.loginUrl}" style="color:var(--accent);font-size:13px;text-decoration:none;">Sign in &rarr;</a>`;
+      } else {
+        stateHtml = `<span><span class="s-val" style="color:var(--accent);">connected</span>` +
+          `&nbsp;&middot;&nbsp;<a href="${API}${s.logoutUrl}" style="color:var(--text2);font-size:12px;">disconnect</a></span>`;
+      }
+      return `<div class="s-row"><span>${s.name}</span>${stateHtml}</div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="s-row"><span>Server offline</span></div>';
+  }
+}
+
+async function saveSettings() {
+  const settings = {
+    djName: document.getElementById('settDjName').value,
+    venueName: document.getElementById('settVenue').value,
+    basePrice: parseInt(document.getElementById('settBasePrice').value) || 1,
+  };
+  await fetch(API + '/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+  showToast('Settings saved');
+}
+
+async function setStatus(id, status) {
+  try {
+    const res = await fetch(API + '/api/status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    });
+    const data = await res.json();
+    if (data.queue) state.queue = data.queue;
+    renderAll();
+    return data;
+  } catch (e) { showToast('Server unreachable'); return {}; }
+}
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('nav button').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+}
+
+function renderAll() { renderQueue(); updateNowPlaying(); updateEarnings(); }
+
+function renderQueue() {
+  const queue = state.queue;
+  const pending = queue.filter(r => r.status === 'pending');
+  const accepted = queue.filter(r => r.status === 'accepted');
+  const played = queue.filter(r => r.status === 'played');
+  const active = [...pending, ...accepted].sort((a, b) => b.priority - a.priority);
+
+  document.getElementById('pendingCount').textContent = active.length;
+  document.getElementById('playedCount').textContent = played.length;
+  document.getElementById('queueCountLabel').textContent = active.length;
+
+  const list = document.getElementById('queueList');
+  const empty = document.getElementById('queueEmpty');
+  if (!active.length) { list.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = active.map((r, i) => {
+    const isPending = r.status === 'pending';
+    const syncPending = !isPending && r.playlistPushes && Object.values(r.playlistPushes).some(p => p.status !== 'ok');
+    const tag = isPending ? '<span class="q-tag pending">pending</span>'
+      : syncPending ? '<span class="q-tag pending">sync pending</span>'
+      : '<span class="q-tag accepted">playlist</span>';
+    const letter = (r.songName || '?')[0];
+    const artHtml = r.albumArt ? `<img src="${r.albumArt}" alt="">` : letter;
+    const btns = isPending
+      ? `<button class="q-btn accept" onclick="acceptSong('${r.id}')">Accept</button><button class="q-btn decline" onclick="skipSong('${r.id}')">Decline</button>`
+      : `<button class="q-btn play" onclick="playSong('${r.id}')">Play</button><button class="q-btn decline" onclick="removeSong('${r.id}')">Remove</button>`;
+    return `<div class="queue-item">
+      <span class="q-rank">${i + 1}</span>
+      <div class="q-art">${artHtml}</div>
+      <div class="q-info">
+        <div class="q-song">${esc(r.songName)} ${tag}</div>
+        <div class="q-meta"><span class="q-credits">${r.totalCredits} cr &middot; $${(r.totalCredits * 2).toFixed(0)}</span><span>${r.requesters} req</span>${r.bpm ? `<span class="q-bpm">${Math.round(r.bpm)} BPM</span>` : ''}</div>
+      </div>
+      <div class="q-actions">${btns}</div>
+    </div>`;
+  }).join('');
+}
+
+async function acceptSong(id) {
+  const s = state.queue.find(r => r.id === id); if (!s) return;
+  const data = await setStatus(id, 'accepted');
+  const results = data.playlists || {};
+  const ok = Object.keys(results).filter(p => results[p] && results[p].ok);
+  const failed = Object.keys(results).filter(p => results[p] && results[p].error);
+  const pending = Object.keys(results).filter(p => results[p] && results[p].pending);
+  const charge = `$${(s.totalCredits * 2).toFixed(0)} charged`;
+  if (failed.length) {
+    showToast(`Accepted (${charge}), but ${failed.join(', ')} failed: ${results[failed[0]].error}`);
+  } else if (pending.length) {
+    showToast(`Accepted (${charge}) — ${pending.join(', ')} not connected, will sync when you sign in`);
+  } else if (ok.length) {
+    showToast(`Added to ${ok.join(' + ')} playlist — ${charge}`);
+  } else {
+    showToast(`Added to playlist — ${charge}`);
+  }
+}
+
+function playSong(id) { setStatus(id, 'playing'); }
+
+function markDone() {
+  const playing = state.queue.find(r => r.status === 'playing');
+  if (playing) setStatus(playing.id, 'played');
+}
+
+async function skipSong(id) {
+  await setStatus(id, 'skipped');
+  showToast('Declined — credits returned');
+}
+
+function removeSong(id) { setStatus(id, 'played'); }
+
+function updateNowPlaying() {
+  const np = document.getElementById('nowPlaying');
+  const s = state.queue.find(r => r.status === 'playing');
+  if (!s) { np.className = 'now-playing empty'; np.innerHTML = 'No song playing'; return; }
+  const letter = (s.songName || '?')[0];
+  const artHtml = s.albumArt ? `<img class="np-art" src="${s.albumArt}" alt="">` : `<div class="np-art" style="background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text2);">${letter}</div>`;
+  np.className = 'now-playing';
+  np.innerHTML = `${artHtml}<div class="np-info"><div class="np-label">Now playing</div><div class="np-song">${esc(s.songName)}</div><div class="np-artist">${esc(s.artistName)}${s.bpm ? ` &middot; <span class="q-bpm">${Math.round(s.bpm)} BPM</span>` : ''}</div></div><button class="np-done" onclick="markDone()">&#10003;</button>`;
+}
+
+function updateEarnings() {
+  const earned = state.queue
+    .filter(r => ['accepted', 'playing', 'played'].includes(r.status))
+    .reduce((sum, r) => sum + r.totalCredits * 2 * 0.50, 0);
+  document.getElementById('totalEarnings').textContent = '$' + earned.toFixed(0);
+}
+
+async function clearQueue() {
+  await fetch(API + '/api/reset', { method: 'POST' });
+  sync(); showToast('Queue cleared');
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200); }
+init();
+</script>
+</body>
+</html>
