@@ -240,12 +240,18 @@ const API = window.KR_API || '';
 let state = { queue: [], settings: {} };
 
 async function init() {
-  // QR must be scannable from OTHER devices — swap localhost for the LAN address
-  let origin = location.origin;
+  // QR must be scannable from OTHER devices. The patron page sits next to this
+  // dj.html, so resolve it relative to the current URL — this keeps any base path
+  // (e.g. GitHub Pages project subpaths like /Application-POC-PWA/) intact.
+  let patronUrl = new URL('index.html', location.href).href;
+  // Local serving: other devices can't reach localhost — swap in the LAN address
+  // from the server while preserving the path.
   if (/localhost|127\.0\.0\.1/.test(location.hostname)) {
-    try { origin = (await (await fetch(API + '/api/info')).json()).lanUrl; } catch (e) {}
+    try {
+      const lan = (await (await fetch(API + '/api/info')).json()).lanUrl;
+      if (lan) patronUrl = lan.replace(/\/+$/, '') + new URL(patronUrl).pathname;
+    } catch (e) {}
   }
-  const patronUrl = origin + '/index.html';
   document.getElementById('qrImg').src =
     'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(patronUrl);
   document.getElementById('qrUrl').textContent = patronUrl;
