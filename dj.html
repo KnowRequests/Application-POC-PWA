@@ -406,7 +406,10 @@ async function skipSong(id) {
   showToast('Declined — credits returned');
 }
 
-function removeSong(id) { setStatus(id, 'played'); }
+async function removeSong(id) {
+  await setStatus(id, 'skipped');
+  showToast('Removed — credits returned');
+}
 
 function updateNowPlaying() {
   const np = document.getElementById('nowPlaying');
