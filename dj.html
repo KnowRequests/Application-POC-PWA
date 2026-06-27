@@ -220,7 +220,7 @@ nav button.active { color: var(--accent); }
     <div class="s-group">
       <div class="s-group-title">Streaming Services</div>
       <div id="servicesList"><div class="s-row"><span>Loading…</span></div></div>
-      <div class="s-row"><span>Request Playlist</span><span class="s-val" style="font-size:12px;">Know Requests — Live</span></div>
+      <div class="s-row"><span>Request Playlist</span><span class="s-val" id="settPlaylistName" style="font-size:12px;">KnowRequests/DJ</span></div>
     </div>
     <button class="danger-btn" onclick="clearQueue()">Clear Queue &amp; Reset</button>
   </div>
@@ -271,6 +271,8 @@ async function sync() {
       document.getElementById('settDjName').value = data.settings.djName || '';
       document.getElementById('settVenue').value = data.settings.venueName || '';
       document.getElementById('settBasePrice').value = String(data.settings.basePrice || 1);
+      document.getElementById('settPlaylistName').textContent =
+        'KnowRequests/' + ((data.settings.djName || 'DJ').trim() || 'DJ');
     }
     renderAll();
   } catch (e) { /* server unreachable — retry on next tick */ }
