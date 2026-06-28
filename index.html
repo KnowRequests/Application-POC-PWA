@@ -205,6 +205,7 @@ nav button.active { color: var(--accent); }
   </div>
   <div class="credit-pill" id="creditBadge" onclick="showView('topup')">0 credits</div>
 </div>
+<div id="noRoomNotice" style="display:none; text-align:center; padding:10px 20px; color:var(--text2); font-size:13px; border-bottom:1px solid var(--border); background:var(--surface);">Scan a DJ's QR code to start.</div>
 
 <!-- LANDING -->
 <div class="view active" id="view-landing">
@@ -306,6 +307,12 @@ nav button.active { color: var(--accent); }
 <script src="config.js"></script>
 <script>
 const API = window.KR_API || '';
+const ROOM = new URLSearchParams(location.search).get('room') || '';
+function kr(path, opts = {}) {
+  const u = new URL(API + path, location.href);
+  if (ROOM) u.searchParams.set('room', ROOM);
+  return fetch(u.toString(), opts);
+}
 // Anonymous device identity (decision 011)
 const USER_ID = localStorage.getItem('kr_user') ||
   (() => { const id = 'u' + Math.random().toString(36).slice(2, 10); localStorage.setItem('kr_user', id); return id; })();
@@ -318,13 +325,14 @@ let state = {
 let searchTimeout = null;
 
 function init() {
+  if (!ROOM) document.getElementById('noRoomNotice').style.display = '';
   sync();
   setInterval(sync, 2000);
 }
 
 async function sync() {
   try {
-    const res = await fetch(API + '/api/queue');
+    const res = await kr('/api/queue');
     const data = await res.json();
     state.queue = data.queue || [];
     state.settings = Object.assign(state.settings, data.settings || {});
@@ -392,7 +400,7 @@ document.getElementById('searchInput').addEventListener('input', function() {
 
 async function searchSongs(query) {
   try {
-    const res = await fetch(`${API}/api/search?q=${encodeURIComponent(query)}`);
+    const res = await kr(`/api/search?q=${encodeURIComponent(query)}`);
     const data = await res.json();
     document.getElementById('searchSpinner').style.display = 'none';
     renderResults(data.results || []);
@@ -453,7 +461,7 @@ async function submitRequest() {
   if ((state.credits - state.heldCredits) < total) { showView('topup'); return; }
   const song = state.selectedSong;
   try {
-    const res = await fetch(API + '/api/request', {
+    const res = await kr('/api/request', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         songId: song.songId, songName: song.songName, artistName: song.artistName,

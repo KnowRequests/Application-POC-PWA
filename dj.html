@@ -161,9 +161,45 @@ nav button.active { color: var(--accent); }
   text-align: center; pointer-events: none;
 }
 .toast.show { opacity: 1; }
+
+/* Room gate overlay */
+.room-gate {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: var(--bg);
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 32px;
+}
+.room-gate.show { display: flex; }
+.gate-logo { font-size: 28px; margin-bottom: 24px; }
+.gate-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.gate-sub { font-size: 13px; color: var(--text2); margin-bottom: 32px; text-align: center; }
+.gate-input {
+  width: 100%; max-width: 320px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; color: var(--text); font-size: 15px;
+  outline: none; margin-bottom: 12px;
+}
+.gate-input:focus { border-color: var(--accent); }
+.gate-btn {
+  width: 100%; max-width: 320px; padding: 13px;
+  background: var(--accent); border: none; border-radius: 8px;
+  color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 4px;
+}
+.gate-btn:active { opacity: 0.85; }
 </style>
 </head>
 <body>
+
+<!-- Room gate overlay — shown when no ROOM/PIN in localStorage -->
+<div class="room-gate" id="roomGate">
+  <div class="gate-logo">&#9835;</div>
+  <div class="gate-title">Open a Room</div>
+  <div class="gate-sub">Enter a room name and PIN to start accepting song requests</div>
+  <input class="gate-input" id="gateRoom" type="text" placeholder="Room name (e.g. main-stage)" autocapitalize="none" autocorrect="off" spellcheck="false">
+  <input class="gate-input" id="gatePin" type="password" placeholder="PIN">
+  <button class="gate-btn" onclick="submitGate()">Open Room</button>
+</div>
 
 <div class="header">
   <span class="header-title">Dashboard</span>
@@ -201,9 +237,8 @@ nav button.active { color: var(--accent); }
   <div class="settings-wrap">
     <h2>Settings</h2>
     <div class="s-group">
-      <div class="s-group-title">Venue</div>
-      <div class="s-row"><span>DJ Name</span><input class="s-input" id="settDjName" onchange="saveSettings()"></div>
-      <div class="s-row"><span>Venue</span><input class="s-input" id="settVenue" onchange="saveSettings()"></div>
+      <div class="s-group-title">Room</div>
+      <div class="s-row"><span>Room Name</span><input class="s-input" id="settRoomName" onchange="saveSettings()"></div>
     </div>
     <div class="s-group">
       <div class="s-group-title">Pricing</div>
@@ -239,7 +274,48 @@ nav button.active { color: var(--accent); }
 const API = window.KR_API || '';
 let state = { queue: [], settings: {} };
 
+// --- Multi-room support ---
+let ROOM = new URLSearchParams(location.search).get('room') || localStorage.getItem('kr_room') || '';
+let PIN  = localStorage.getItem('kr_pin') || '';
+
+// Room-scoped fetch wrapper: appends ?room= and X-KR-Pin to every API call.
+function kr(path, opts = {}) {
+  const u = new URL(API + path, location.href);
+  if (ROOM) u.searchParams.set('room', ROOM);
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (PIN) headers['X-KR-Pin'] = PIN;
+  return fetch(u.toString(), Object.assign({}, opts, { headers }));
+}
+
+// POST /api/room/open — creates or authenticates into a room.
+async function openRoom(name, pin) {
+  const res = await fetch(API + '/api/room/open', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ room: name, pin })
+  });
+  if (!res.ok) { showToast('Wrong PIN for that room'); return false; }
+  const d = await res.json();
+  ROOM = d.room; PIN = pin;
+  localStorage.setItem('kr_room', ROOM); localStorage.setItem('kr_pin', PIN);
+  return true;
+}
+
+function showRoomGate() { document.getElementById('roomGate').classList.add('show'); }
+function hideRoomGate() { document.getElementById('roomGate').classList.remove('show'); }
+
+async function submitGate() {
+  const name = document.getElementById('gateRoom').value.trim();
+  const pin  = document.getElementById('gatePin').value.trim();
+  if (!name || !pin) { showToast('Enter room name and PIN'); return; }
+  if (await openRoom(name, pin)) { hideRoomGate(); startDashboard(); }
+}
+// --- End multi-room support ---
+
 async function init() {
+  if (!ROOM || !PIN) { showRoomGate(); } else { startDashboard(); }
+}
+
+async function startDashboard() {
   // QR must be scannable from OTHER devices. The patron page sits next to this
   // dj.html, so resolve it relative to the current URL — this keeps any base path
   // (e.g. GitHub Pages project subpaths like /Application-POC-PWA/) intact.
@@ -248,10 +324,12 @@ async function init() {
   // from the server while preserving the path.
   if (/localhost|127\.0\.0\.1/.test(location.hostname)) {
     try {
-      const lan = (await (await fetch(API + '/api/info')).json()).lanUrl;
+      const lan = (await (await kr('/api/info')).json()).lanUrl;
       if (lan) patronUrl = lan.replace(/\/+$/, '') + new URL(patronUrl).pathname;
     } catch (e) {}
   }
+  // Append room param so patrons land in the right room automatically.
+  patronUrl += (patronUrl.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(ROOM);
   document.getElementById('qrImg').src =
     'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(patronUrl);
   document.getElementById('qrUrl').textContent = patronUrl;
@@ -263,16 +341,15 @@ async function init() {
 
 async function sync() {
   try {
-    const res = await fetch(API + '/api/queue');
+    const res = await kr('/api/queue');
     const data = await res.json();
     state.queue = data.queue || [];
     if (data.settings && document.activeElement.tagName !== 'INPUT') {
       state.settings = data.settings;
-      document.getElementById('settDjName').value = data.settings.djName || '';
-      document.getElementById('settVenue').value = data.settings.venueName || '';
+      document.getElementById('settRoomName').value = data.settings.name || '';
       document.getElementById('settBasePrice').value = String(data.settings.basePrice || 1);
       document.getElementById('settPlaylistName').textContent =
-        'KnowRequests/' + ((data.settings.djName || 'DJ').trim() || 'DJ');
+        'KnowRequests/' + ((data.settings.name || 'DJ').trim() || 'DJ');
     }
     renderAll();
   } catch (e) { /* server unreachable — retry on next tick */ }
@@ -281,7 +358,7 @@ async function sync() {
 async function checkServices() {
   const el = document.getElementById('servicesList');
   try {
-    const res = await fetch(API + '/api/services');
+    const res = await kr('/api/services');
     const d = await res.json();
     const services = d.services || [];
     if (!services.length) {
@@ -307,18 +384,17 @@ async function checkServices() {
 
 async function saveSettings() {
   const settings = {
-    djName: document.getElementById('settDjName').value,
-    venueName: document.getElementById('settVenue').value,
+    name: document.getElementById('settRoomName').value,
     basePrice: parseInt(document.getElementById('settBasePrice').value) || 1,
   };
-  await fetch(API + '/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
+  await kr('/api/settings', { method: 'POST', body: JSON.stringify(settings) });
   showToast('Settings saved');
 }
 
 async function setStatus(id, status) {
   try {
-    const res = await fetch(API + '/api/status', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const res = await kr('/api/status', {
+      method: 'POST',
       body: JSON.stringify({ id, status }),
     });
     const data = await res.json();
@@ -429,7 +505,7 @@ function updateEarnings() {
 }
 
 async function clearQueue() {
-  await fetch(API + '/api/reset', { method: 'POST' });
+  await kr('/api/reset', { method: 'POST' });
   sync(); showToast('Queue cleared');
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }

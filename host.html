@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#111">
+<title>Know Requests — Host</title>
+<script src="config.js"></script>
+<style>
+:root {
+  --bg: #111; --surface: #1a1a1a; --border: #272727;
+  --text: #f0f0f0; --text2: #777; --accent: #10b981;
+  --accent-dim: rgba(16,185,129,0.12); --red: #ef4444;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(17,17,17,0.92); backdrop-filter: blur(12px);
+}
+.header-title { font-size: 15px; font-weight: 600; }
+.header-sub   { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.btn-logout {
+  font-size: 12px; color: var(--text2); background: none; border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer;
+}
+.btn-logout:hover { color: var(--text); border-color: #444; }
+
+/* ── Gate (passphrase screen) ── */
+#gate {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 80vh; gap: 12px; padding: 24px;
+}
+#gate h2 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+#gate p  { font-size: 13px; color: var(--text2); }
+#hp {
+  width: 100%; max-width: 340px; padding: 11px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 15px;
+  outline: none;
+}
+#hp:focus { border-color: var(--accent); }
+.btn-primary {
+  width: 100%; max-width: 340px; padding: 11px;
+  background: var(--accent); color: #000; font-size: 15px; font-weight: 600;
+  border: none; border-radius: 8px; cursor: pointer;
+}
+.btn-primary:hover { opacity: 0.9; }
+#gate-err { font-size: 13px; color: var(--red); min-height: 18px; }
+
+/* ── Panel ── */
+#panel { padding: 20px; }
+#panel h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+
+/* ── Room cards ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 12px;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.room-name { font-size: 15px; font-weight: 600; }
+.room-id   { font-size: 11px; color: var(--text2); font-family: monospace; margin-top: 2px; }
+
+.field-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+.target-select {
+  width: 100%; padding: 9px 10px;
+  background: #222; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px;
+  outline: none; cursor: pointer;
+}
+.target-select:focus { border-color: var(--accent); }
+
+.card-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.btn-pin {
+  padding: 7px 14px; background: none; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text2); font-size: 13px; cursor: pointer;
+}
+.btn-pin:hover { color: var(--text); border-color: #555; }
+.save-msg { font-size: 12px; color: var(--accent); opacity: 0; transition: opacity 0.3s; }
+.save-msg.show { opacity: 1; }
+
+/* ── Empty / error states ── */
+.state-msg { text-align: center; color: var(--text2); font-size: 14px; padding: 40px 0; }
+.state-msg.error { color: var(--red); }
+
+/* ── PIN modal overlay ── */
+#pin-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  align-items: center; justify-content: center; z-index: 200;
+}
+#pin-modal.open { display: flex; }
+.modal-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px; width: 300px; max-width: 90vw;
+}
+.modal-box h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.modal-box p  { font-size: 12px; color: var(--text2); margin-bottom: 14px; }
+#pin-input {
+  width: 100%; padding: 10px 12px; background: #222;
+  border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text); font-size: 15px; letter-spacing: 0.15em;
+  outline: none; margin-bottom: 14px;
+}
+#pin-input:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-cancel {
+  padding: 8px 14px; background: none; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text2); font-size: 13px; cursor: pointer;
+}
+.btn-confirm {
+  padding: 8px 16px; background: var(--accent); color: #000;
+  font-size: 13px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Passphrase gate ── -->
+<div id="gate">
+  <h2>Host Console</h2>
+  <p>Enter your host passphrase to manage rooms</p>
+  <input id="hp" type="password" placeholder="Host passphrase" autocomplete="current-password"
+         onkeydown="if(event.key==='Enter') enter()">
+  <button class="btn-primary" onclick="enter()">Enter</button>
+  <span id="gate-err"></span>
+</div>
+
+<!-- ── Main panel (hidden until authenticated) ── -->
+<div id="panel" hidden>
+  <div class="header">
+    <div>
+      <div class="header-title">Host Console</div>
+      <div class="header-sub">Know Requests</div>
+    </div>
+    <button class="btn-logout" onclick="logout()">Sign out</button>
+  </div>
+
+  <div style="padding:20px">
+    <h2>Rooms</h2>
+    <div id="rooms"><div class="state-msg">Loading rooms…</div></div>
+  </div>
+</div>
+
+<!-- ── PIN reset modal ── -->
+<div id="pin-modal">
+  <div class="modal-box">
+    <h3>Reset Room PIN</h3>
+    <p id="pin-modal-room"></p>
+    <input id="pin-input" type="text" inputmode="numeric" placeholder="New PIN" maxlength="16">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmPin()">Set PIN</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.KR_API || '';
+
+let HOST = sessionStorage.getItem('kr_host') || '';
+let _pendingPinRoom = null;
+
+/* ── Auth helpers ── */
+function headers() {
+  return { 'Content-Type': 'application/json', 'X-KR-Host': HOST };
+}
+
+/* ── Gate ── */
+async function enter() {
+  const passInput = document.getElementById('hp');
+  const errEl     = document.getElementById('gate-err');
+  HOST = passInput.value.trim();
+  if (!HOST) { errEl.textContent = 'Enter a passphrase.'; return; }
+  errEl.textContent = '';
+
+  let r = await fetch(API + '/api/host/rooms', { headers: headers() });
+
+  // First-run: 401 with no prior setup — try to bootstrap
+  if (r.status === 401) {
+    const setup = await fetch(API + '/api/host/setup', {
+      method: 'POST', headers: headers()
+    });
+    if (setup.ok) {
+      r = await fetch(API + '/api/host/rooms', { headers: headers() });
+    }
+  }
+
+  if (!r.ok) {
+    errEl.textContent = 'Wrong passphrase or server error.';
+    HOST = '';
+    return;
+  }
+
+  sessionStorage.setItem('kr_host', HOST);
+  document.getElementById('gate').hidden   = true;
+  document.getElementById('panel').hidden  = false;
+  render();
+}
+
+function logout() {
+  HOST = '';
+  sessionStorage.removeItem('kr_host');
+  document.getElementById('gate').hidden  = false;
+  document.getElementById('panel').hidden = true;
+  document.getElementById('hp').value     = '';
+  document.getElementById('gate-err').textContent = '';
+}
+
+/* ── Main render ── */
+async function render() {
+  const container = document.getElementById('rooms');
+  container.innerHTML = '<div class="state-msg">Loading…</div>';
+
+  let rooms, pls;
+  try {
+    [rooms, pls] = await Promise.all([
+      fetch(API + '/api/host/rooms',     { headers: headers() }).then(r => {
+        if (!r.ok) throw new Error('rooms ' + r.status);
+        return r.json();
+      }),
+      fetch(API + '/api/host/playlists', { headers: headers() }).then(r => {
+        if (!r.ok) throw new Error('playlists ' + r.status);
+        return r.json();
+      })
+    ]);
+  } catch (e) {
+    container.innerHTML = '<div class="state-msg error">Failed to load: ' + e.message + '</div>';
+    return;
+  }
+
+  const roomList = rooms.rooms || [];
+  if (!roomList.length) {
+    container.innerHTML = '<div class="state-msg">No rooms configured.</div>';
+    return;
+  }
+
+  const playlists = pls.playlists || [];
+  const ownLabel  = pls.uid ? 'Own (KnowRequests/' + pls.uid + ')' : 'Own (KnowRequests)';
+
+  // Build option HTML for each room's select
+  function buildOptions(currentTarget) {
+    const ownSelected     = (!currentTarget || currentTarget.kind === 'own') ? 'selected' : '';
+    let opts = '<option value="own" ' + ownSelected + '>' + ownLabel + '</option>';
+    for (const pl of playlists) {
+      const val      = pl.id + '|' + pl.name;
+      const selected = (currentTarget && currentTarget.kind === 'shared' && currentTarget.playlistId === pl.id) ? 'selected' : '';
+      opts += '<option value="' + escAttr(val) + '" ' + selected + '>' + escHtml(pl.name) + '</option>';
+    }
+    return opts;
+  }
+
+  container.innerHTML = roomList.map(function(room) {
+    const opts = buildOptions(room.target);
+    return (
+      '<div class="card" id="card-' + escAttr(room.id) + '">' +
+        '<div class="card-header">' +
+          '<div>' +
+            '<div class="room-name">' + escHtml(room.name) + '</div>' +
+            '<div class="room-id">' + escHtml(room.id) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="field-label">Target playlist</div>' +
+        '<select class="target-select" onchange="setTarget(' + JSON.stringify(room.id) + ', this.value, this)">' +
+          opts +
+        '</select>' +
+        '<div class="card-actions">' +
+          '<button class="btn-pin" onclick="openPinModal(' + JSON.stringify(room.id) + ', ' + JSON.stringify(room.name) + ')">Reset PIN</button>' +
+          '<span class="save-msg" id="save-' + escAttr(room.id) + '">Saved</span>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+/* ── Target change ── */
+async function setTarget(room, val, selectEl) {
+  let target;
+  if (val === 'own') {
+    target = { kind: 'own' };
+  } else {
+    const sep = val.indexOf('|');
+    const playlistId   = val.slice(0, sep);
+    const playlistName = val.slice(sep + 1);
+    target = { kind: 'shared', playlistId: playlistId, playlistName: playlistName };
+  }
+
+  try {
+    const r = await fetch(API + '/api/host/room-target', {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ room: room, target: target })
+    });
+    if (!r.ok) throw new Error(r.status);
+    flashSaved(room);
+  } catch (e) {
+    alert('Failed to save target: ' + e.message);
+    if (selectEl) render(); // reload to restore previous state
+  }
+}
+
+function flashSaved(roomId) {
+  const el = document.getElementById('save-' + roomId);
+  if (!el) return;
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 1800);
+}
+
+/* ── PIN modal ── */
+function openPinModal(roomId, roomName) {
+  _pendingPinRoom = roomId;
+  document.getElementById('pin-modal-room').textContent = 'Room: ' + roomName;
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-modal').classList.add('open');
+  setTimeout(function() { document.getElementById('pin-input').focus(); }, 50);
+}
+
+function closePinModal() {
+  _pendingPinRoom = null;
+  document.getElementById('pin-modal').classList.remove('open');
+}
+
+async function confirmPin() {
+  if (!_pendingPinRoom) return;
+  const pin  = document.getElementById('pin-input').value.trim();
+  const room = _pendingPinRoom;
+  if (!pin) { alert('Enter a PIN.'); return; }
+
+  closePinModal();
+  try {
+    const r = await fetch(API + '/api/host/room-pin', {
+      method: 'POST', headers: headers(),
+      body: JSON.stringify({ room: room, pin: pin })
+    });
+    if (!r.ok) throw new Error(r.status);
+    flashSaved(room);
+  } catch (e) {
+    alert('Failed to reset PIN: ' + e.message);
+  }
+}
+
+/* Close modal on backdrop click */
+document.getElementById('pin-modal').addEventListener('click', function(e) {
+  if (e.target === this) closePinModal();
+});
+
+/* Dismiss modal with Escape */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closePinModal();
+});
+
+/* ── Utilities ── */
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escAttr(s) { return escHtml(s); }
+
+/* ── Auto-enter if passphrase already in session ── */
+if (HOST) {
+  // Skip gate, go straight to panel after verifying session is still valid
+  (async function() {
+    const r = await fetch(API + '/api/host/rooms', { headers: headers() });
+    if (r.ok) {
+      document.getElementById('gate').hidden  = true;
+      document.getElementById('panel').hidden = false;
+      render();
+    } else {
+      // Passphrase expired / wrong — clear it
+      HOST = '';
+      sessionStorage.removeItem('kr_host');
+    }
+  })();
+}
+</script>
+</body>
+</html>
